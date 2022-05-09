@@ -3,16 +3,16 @@ from Generator import DataGenerating
 if __name__ == '__main__':
     #data = Model()
 
-    gen = DataGenerating([-0.5, -0.3], [0.3, 0.5], sigma=10, N=20000, v=10000)
+    gen = DataGenerating([-0.1, 0.3], [0.3, 0.5], sigma=0.5, N=2000, v=1000)
     data = gen.generating_data()
     model = Model(h=10, data = data)
 
-    model.Estimate_var(3,400,800)
+    print(model.Estimate_var(3,40,80))
 
-    v,c = model.V_slove(2, 100)
+    v,c = model.V_slove(2, 90)
     print(v, c)
 
-    #model.r_t(40, 40)
+    model.r_t(40, 40)
     # print(data.Estimate_var(10, 100, 200))
     # print(data.MNK(10, 50))
     # print(data.Estimate_var(10, 300, 600))

@@ -37,48 +37,54 @@ class Model:
                     np.dot(mnk, np.array(self.X[i - self.order: i]).reshape(-1, 1))) ** 2
 
         var = (sum / (N2 - N1 - 2)) ** (1 / 2)
-        return var
+        return var[0]
 
-    def _C(self, x0, N, v):
-        C_sum = np.zeros((self.order, self.order))
+    def _C(self, i, v, C_sum):
 
-        for i in range(x0, N):
-            A = np.array(self.X[i - self.order:i]).reshape(-1, self.order)
+        A = np.array(self.X[i - self.order:i]).reshape(-1, self.order)
 
-            C_sum = C_sum + v[i - x0 - self.order] * np.dot(A.transpose(), A)
+        C_sum = C_sum + v * np.dot(A.transpose(), A)
 
         return min(np.linalg.eig(C_sum)[0]), C_sum
 
-    def _Sum_right(self, x0, N, v):
-        sum = 0
+    def _Sum_right(self, i, v, sum):
 
-        for i in range(x0, N):
+        A = np.array(self.X[i - self.order:i]).reshape(-1, self.order)
 
-            A = np.array(self.X[i - self.order:i]).reshape(-1, self.order)
-
-            sum = sum + (v[i - x0 -  self.order] ** 2) * np.dot(A, A.transpose())[0]
+        sum = sum + (v ** 2) * np.dot(A, A.transpose())[0]
 
         return sum
 
-    def _start_v(self, x0):
+    def _start_param(self, x0):
         list_v = []
-        for i in range(self.order):
-            list_v.append(1 / (self.sigma * (
-                np.dot(np.array(self.X[i + x0: i + x0 + self.order]), np.array(self.X[i + x0: i + x0 + self.order]).transpose())) ** (
-                                            1 / 2)))
-        return list_v
+        v_min = np.zeros((self.order, self.order))
+        C_sum = 0
+        for i in range(x0, self.order + x0):
+            v = 1 / (self.sigma * (np.dot(np.array(self.X[i: i + self.order]), np.array(self.X[i: i + self.order]).transpose())) ** (1 / 2))
+            if v>1:
+                v=0
 
-    def V_slove(self, k, N, v=[]):
-        if len(v) == 0:
-            v_interval = self._start_v(k)
-        for i in range(k + self.order, N ):
+            list_v.append(v)
+
+            A = np.array(self.X[i - self.order:i]).reshape(-1, self.order)
+            v_min += list_v[-1] * np.dot(A.transpose(), A)
+            C_sum += (list_v[-1] ** 2) * np.dot(A, A.transpose())[0][0]
+
+        return list_v, v_min, C_sum
+
+    def V_slove(self, k, N):
+
+        v_interval, v_min, C_sum = self._start_param(k)
+
+        for i in range(k + self.order, N):
             v_interval.append(0.5)
 
-            diff = self._Sum_right(k, i, v_interval) - self._C(k, i, v_interval)[0] / (self.sigma ** 2)
+            diff = self._Sum_right(i, v_interval[-1], C_sum) - self._C(i, v_interval[-1], v_min)[0] / (self.sigma ** 2)
             p = 2
-            print('-----------------')
+
+            min = [100000000000, 0]
             while (abs(diff) > 0.0001):
-                print(self._Sum_right(k, i, v_interval), self._C(k, i, v_interval)[0] / (self.sigma ** 2), v_interval[-1])
+
                 p = p * 2
 
                 if diff < 0:
@@ -86,41 +92,52 @@ class Model:
                 else:
                     v_interval[-1] = v_interval[-1] - 1 / p
                 if 1 / p < 1e-10:
+                    # v_interval[-1] = min[1]
                     break
 
-                C_ = self._C(k, i, v_interval)[0]
-                diff = self._Sum_right(k, i, v_interval) - C_ / (self.sigma ** 2)
+                C_, mat = self._C(i, v_interval[-1], v_min)
+                Sum_ = self._Sum_right(i, v_interval[-1], C_sum)
+                #print(Sum_ , C_ / (self.sigma ** 2), v_interval[-1])
+                diff = Sum_ - C_ / (self.sigma ** 2)
+                # if diff<min[0]:
+                #   min[0] = diff
+                #  min[1] = copy.copy(v_interval[-1])
 
-        return v_interval, C_
+            v_min = mat
+            C_sum = Sum_
 
+        return v_interval, v_min
 
-    def r_t(self, MNK_size, D_size):
+    def r_t(self, MNK_size, D_size, var = None):
         v = []
         t_last_index = self.order
 
-        while (self.N - self.order > t_last_index + 2):
+        while (self.N - self.order > t_last_index+ MNK_size + D_size+ 2):
 
+            k0 = t_last_index
+            if var is None:
+                self.sigma = self.Estimate_var(k0+ 2, k0 + MNK_size+ 2, k0 + MNK_size + D_size+ 2)
+            else:
+                self.sigma = var
+
+            k0 = k0 + MNK_size + D_size
+            k_last = k0 + 1
             S = 0
-            k0 = t_last_index + MNK_size + D_size
-            k_last = t_last_index + MNK_size + D_size + 1
-            if k0 + MNK_size + D_size < self.N:
-                self.sigma = self.Estimate_var(k0, k0 + MNK_size, k0 + MNK_size + D_size)[0]
-
-            print(self.sigma)
 
             while S < self.h and k_last < self.N - self.order:
-                wghts = copy.copy(self.list_v)
 
-                v, S = self.V_slove(k0, k_last, wghts)
-
+                v, S = self.V_slove(k0, k_last)
+                #print(k0, k_last, self.V_slove(82, 90))
                 k_last = k_last + 1
+                S = min(np.linalg.eig(S)[0])
+                #print(S,v)
                 self.r.append(S)
 
-            self.list_v.append(copy.copy(v))
-
+            self.list_v.append(v)
             self.r.append(S)
 
-            t_last_index = k_last - 1
+            t_last_index = k_last + 1
+            print(t_last_index)
             self.t.append(t_last_index)
 
     def Lambd(self):
