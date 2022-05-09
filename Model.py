@@ -10,13 +10,15 @@ class Model:
         self.h = h
         self.order = order
         self.N = len(data)
-        self.t = []
+        self.t = [0]
         self.r = []
         self.list_v = []
         self.L = []
         self.list_J = []
         self.X = data
         self.sigma = 1
+        self.С_border = []
+        self.indent = 0
 
     def _MNK(self, N0, N1):
 
@@ -60,9 +62,11 @@ class Model:
         v_min = np.zeros((self.order, self.order))
         C_sum = 0
         for i in range(x0, self.order + x0):
-            v = 1 / (self.sigma * (np.dot(np.array(self.X[i: i + self.order]), np.array(self.X[i: i + self.order]).transpose())) ** (1 / 2))
-            if v>1:
-                v=0
+            v = 1 / (self.sigma * (
+                np.dot(np.array(self.X[i: i + self.order]), np.array(self.X[i: i + self.order]).transpose())) ** (
+                                 1 / 2))
+            if v > 1:
+                v = 0
 
             list_v.append(v)
 
@@ -72,86 +76,79 @@ class Model:
 
         return list_v, v_min, C_sum
 
-    def V_slove(self, k, N):
+    def V_slove(self, k=0, v_interval=0, v_min=0, C_sum=0):
+        if v_min == 0:
+            v_interval, v_min, C_sum = self._start_param(k)
 
-        v_interval, v_min, C_sum = self._start_param(k)
+        # for i in range(k + self.order, N):
+        v_interval.append(0.5)
 
-        for i in range(k + self.order, N):
-            v_interval.append(0.5)
+        diff = self._Sum_right(k, v_interval[-1], C_sum) - self._C(k, v_interval[-1], v_min)[0] / (self.sigma ** 2)
+        p = 2
 
-            diff = self._Sum_right(i, v_interval[-1], C_sum) - self._C(i, v_interval[-1], v_min)[0] / (self.sigma ** 2)
-            p = 2
+        while (abs(diff) > 0.0001):
 
-            min = [100000000000, 0]
-            while (abs(diff) > 0.0001):
+            p = p * 2
 
-                p = p * 2
+            if diff < 0:
+                v_interval[-1] = v_interval[-1] + 1 / p
+            else:
+                v_interval[-1] = v_interval[-1] - 1 / p
+            if 1 / p < 1e-10:
+                v_interval[-1] = 0  # min[1]
+                break
 
-                if diff < 0:
-                    v_interval[-1] = v_interval[-1] + 1 / p
-                else:
-                    v_interval[-1] = v_interval[-1] - 1 / p
-                if 1 / p < 1e-10:
-                    # v_interval[-1] = min[1]
-                    break
+            C_, mat = self._C(k, v_interval[-1], v_min)
+            Sum_ = self._Sum_right(k, v_interval[-1], C_sum)
 
-                C_, mat = self._C(i, v_interval[-1], v_min)
-                Sum_ = self._Sum_right(i, v_interval[-1], C_sum)
-                #print(Sum_ , C_ / (self.sigma ** 2), v_interval[-1])
-                diff = Sum_ - C_ / (self.sigma ** 2)
-                # if diff<min[0]:
-                #   min[0] = diff
-                #  min[1] = copy.copy(v_interval[-1])
+            diff = Sum_ - C_ / (self.sigma ** 2)
 
-            v_min = mat
-            C_sum = Sum_
+        v_min = mat
+        C_sum = Sum_
+        # print(v_min, C_sum)
+        return v_interval, v_min, C_sum
 
-        return v_interval, v_min
-
-    def r_t(self, MNK_size, D_size, var = None):
+    def r_t(self, MNK_size, D_size, var=None):
         v = []
         t_last_index = self.order
+        self.indent = MNK_size + D_size
 
-        while (self.N - self.order > t_last_index+ MNK_size + D_size+ 2):
+        while (self.N - self.order > t_last_index + MNK_size + D_size + 2):
 
             k0 = t_last_index
             if var is None:
-                self.sigma = self.Estimate_var(k0+ 2, k0 + MNK_size+ 2, k0 + MNK_size + D_size+ 2)
+                self.sigma = self.Estimate_var(k0 + 2, k0 + MNK_size + 2, k0 + MNK_size + D_size + 2)
             else:
                 self.sigma = var
 
             k0 = k0 + MNK_size + D_size
             k_last = k0 + 1
-            S = 0
+            S_l = 0
+            v, S, C_sum = self.V_slove(k=k0)
 
-            while S < self.h and k_last < self.N - self.order:
+            while S_l < self.h and k_last < self.N - self.order:
+                v, S, C_sum = self.V_slove(k_last,v, S, C_sum)
 
-                v, S = self.V_slove(k0, k_last)
-                #print(k0, k_last, self.V_slove(82, 90))
                 k_last = k_last + 1
-                S = min(np.linalg.eig(S)[0])
-                #print(S,v)
-                self.r.append(S)
+                S_l = min(np.linalg.eig(S)[0])
+                # print(v, S_l)
+                self.r.append(S_l)
 
             self.list_v.append(v)
-            self.r.append(S)
-
+            self.С_border.append(S)
+            self.t.append(t_last_index)
             t_last_index = k_last + 1
             print(t_last_index)
-            self.t.append(t_last_index)
 
     def Lambd(self):
 
-        for i in range(self.order - 2):
-            _, cc = self.C(self.t[i], self.t[i + 1], self.list_v)
-
-            c = np.linalg.inv(cc)
-
+        for i in range(len(self.t)):
+            c = self.С_border[i]
             S = np.zeros((self.order, 1))
 
-            for j in range(self.t[i] - self.order, self.t[i + 1]):
+            for j in range(self.t[i] + self.indent, self.t[i + 1]):
                 A = np.array(self.X[j - self.order:j]).reshape(-1, self.order)
-                S += A.transpose() * self.list_v[j] * self.X[j + 1]
+                S += A.transpose() * self.list_v[i][j - self.t[i] + self.indent] * self.X[j]
 
             self.L.append(np.dot(c, S))
 
