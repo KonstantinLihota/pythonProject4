@@ -19,7 +19,7 @@ class Model:
         self.sigma = 1
 
     def _MNK(self, N0, N1):
-        print([self.X[N0 - i:N1 - i] for i in range(self.order, 2 * self.order)])
+
         A = np.array([self.X[N0 - i:N1 - i] for i in range(self.order, 2 * self.order)])
         b = np.array(self.X[N0:N1]).reshape(-1, 1)
 
@@ -31,7 +31,7 @@ class Model:
     def Estimate_var(self, N0, N1, N2):
         sum = 0
         mnk = self._MNK(N0, N1)
-        print(mnk)
+
         for i in range(N1, N2 - 1):
             sum += (np.array(self.X[i + 1]) -
                     np.dot(mnk, np.array(self.X[i - self.order: i]).reshape(-1, 1))) ** 2
@@ -45,7 +45,7 @@ class Model:
         for i in range(x0, N):
             A = np.array(self.X[i - self.order:i]).reshape(-1, self.order)
 
-            C_sum = C_sum + v[i - x0] * np.dot(A.transpose(), A)
+            C_sum = C_sum + v[i - x0 - self.order] * np.dot(A.transpose(), A)
 
         return min(np.linalg.eig(C_sum)[0]), C_sum
 
@@ -53,24 +53,34 @@ class Model:
         sum = 0
 
         for i in range(x0, N):
+
             A = np.array(self.X[i - self.order:i]).reshape(-1, self.order)
-            sum = sum + v[i - x0] ** 2 * np.dot(A, A.transpose())[0]
+
+            sum = sum + (v[i - x0 -  self.order] ** 2) * np.dot(A, A.transpose())[0]
 
         return sum
 
-    def V_slove(self, k, N, v):
+    def _start_v(self, x0):
+        list_v = []
+        for i in range(self.order):
+            list_v.append(1 / (self.sigma * (
+                np.dot(np.array(self.X[i + x0: i + x0 + self.order]), np.array(self.X[i + x0: i + x0 + self.order]).transpose())) ** (
+                                            1 / 2)))
+        return list_v
 
-        self.start_v()
-        v_interval = v
-        for i in range(k, N):
+    def V_slove(self, k, N, v=[]):
+        if len(v) == 0:
+            v_interval = self._start_v(k)
+        for i in range(k + self.order, N ):
             v_interval.append(0.5)
 
             diff = self._Sum_right(k, i, v_interval) - self._C(k, i, v_interval)[0] / (self.sigma ** 2)
             p = 2
-
+            print('-----------------')
             while (abs(diff) > 0.0001):
-
+                print(self._Sum_right(k, i, v_interval), self._C(k, i, v_interval)[0] / (self.sigma ** 2), v_interval[-1])
                 p = p * 2
+
                 if diff < 0:
                     v_interval[-1] = v_interval[-1] + 1 / p
                 else:
@@ -83,11 +93,6 @@ class Model:
 
         return v_interval, C_
 
-    def _start_v(self):
-        for i in range(self.order):
-            self.list_v.append(1 / (self.sigma * (
-                np.dot(np.array(self.X[i: i + self.order]), np.array(self.X[i: i + self.order]).transpose())) ** (
-                                            1 / 2)))
 
     def r_t(self, MNK_size, D_size):
         v = []
@@ -105,7 +110,7 @@ class Model:
 
             while S < self.h and k_last < self.N - self.order:
                 wghts = copy.copy(self.list_v)
-                print(S, k0, k_last, len(v))
+
                 v, S = self.V_slove(k0, k_last, wghts)
 
                 k_last = k_last + 1
