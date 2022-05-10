@@ -3,9 +3,9 @@ from Generator import DataGenerating
 if __name__ == '__main__':
     #data = Model()
 
-    gen = DataGenerating([-0.1, 0.3], [0.3, 0.5], sigma=1, N=2000, v=1000)
+    gen = DataGenerating([-0.7, 0.2], [0.3, 0.5], sigma=1, N=2000, v=1000)
     data = gen.generating_data()
-    model = Model(h=15, data = data)
+    model = Model(h=40, data = data)
 
     print(model.Estimate_var(3,40,80))
 
@@ -16,6 +16,6 @@ if __name__ == '__main__':
 
     model.Lambd()
     print('---------')
-    print(model.L)
+    print(model.L[0])
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
