@@ -19,6 +19,7 @@ class Model:
         self.sigma = 1
         self.С_border = []
         self.indent = 0
+        self._ = 0
 
     def _MNK(self, N0, N1):
 
@@ -54,19 +55,23 @@ class Model:
         A = np.array(self.X[i - self.order:i]).reshape(-1, self.order)
 
         sum = sum + (v ** 2) * np.dot(A, A.transpose())[0]
-
+        self._ = (A, v)
         return sum
 
     def _start_param(self, x0):
         list_v = []
         v_min = np.zeros((self.order, self.order))
         C_sum = 0
-        for i in range(x0, self.order + x0):
-            #v = 1 / (self.sigma * (
-             #   np.dot(np.array(self.X[i - self.order:i]), np.array(self.X[i - self.order:i]).transpose())) ** (
-              #               1 / 2))
-            v=0
+        if x0 < self.order:
+            return [0] * self.order, 0, 0
 
+        for i in range(x0 - self.order, x0):
+            v = 1 / (self.sigma * (
+                np.dot(np.array(self.X[i - self.order:i]), np.array(self.X[i - self.order:i]).transpose())) ** (
+                             1 / 2))
+            # if v>1:
+            #    v = 1
+            v = 0
 
             list_v.append(v)
 
@@ -83,11 +88,11 @@ class Model:
         # for i in range(k + self.order, N):
         v_interval.append(0.5)
 
-        C_, mat =  self._C(k, v_interval[-1], v_min)
+        C_, mat = self._C(k, v_interval[-1], v_min)
         Sum_ = self._Sum_right(k, v_interval[-1], C_sum)
         p = 2
         diff = Sum_ - C_ / (self.sigma ** 2)
-        while (abs(diff) > 0.0001):
+        while (abs(diff) > 1e-6):
 
             p = p * 2
 
@@ -96,7 +101,6 @@ class Model:
             else:
                 v_interval[-1] = v_interval[-1] - 1 / p
             if 1 / p < 1e-10:
-
                 break
 
             C_, mat = self._C(k, v_interval[-1], v_min)
@@ -106,7 +110,7 @@ class Model:
 
         v_min = mat
         C_sum = Sum_
-        #print(v_interval[-1])
+        # print(v_interval[-1])
         return v_interval, v_min, C_sum
 
     def r_t(self, MNK_size, D_size, var=None):
@@ -131,27 +135,34 @@ class Model:
                 k_last = k_last + 1
 
                 self.r.append(min(np.linalg.eig(S)[0]))
+            #print(len(v), k_last - k0)
 
-            self.list_v.append(v)
+            self.list_v.append((v, k_last))
             self.С_border.append(S)
 
-            t_last_index = k_last + 1
-            self.t.append(t_last_index)
-
+            t_last_index = k_last
+            self.t.append(t_last_index - 1)
 
     def Lambd(self):
-        print(len(self.list_v), len(self.С_border),len(self.t))
+        # print(len(self.list_v), len(self.С_border), len(self.t))
+        print(self._)
+        print(self.list_v[-1][0][-1])
         for i in range(1, len(self.t)):
-            c = np.linalg.inv(self.С_border[i-1])
+            c = np.linalg.inv(self.С_border[i - 1])
             S = np.zeros((self.order, 1))
-
-            for j in range(self.t[i-1] + self.indent, self.t[i] - 1):
-
-                A = np.array(self.X[j - self.order:j]).reshape(-1, self.order)
-                print(j - self.t[i-1] - self.indent)
-                S += A.transpose() * self.list_v[i - 1][j - self.t[i-1] - self.indent] * self.X[j]
-
+            len_t = self.t[i] - self.t[i-1] - self.indent
+            #print(len_t, len(self.list_v[i-1][0]))
+            for j in range(len(self.list_v[i - 1][0])):
+                T = self.t[i-1] + j + self.indent
+                A = np.array(self.X[T - self.order - 1:T -1]).reshape(-1, self.order)
+                print(np.array(self.X[T - self.order - 1:T + 1]), self.X[T - 1])
+                l = (A, self.list_v[i - 1][0][j])
+                S += A.transpose() * self.list_v[i - 1][0][j] * self.X[T]
+            # print(S)
+            # print('-----------------')
+            # break
             self.L.append(np.dot(c, S))
+
 
     def J(self):
         for l in range(1, len(self.L)):
