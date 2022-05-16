@@ -68,7 +68,7 @@ class Model:
 
         for i in range(x0 - self.order, x0):
             v = 1 / (self.sigma * (
-                np.dot(np.array(self.X[i  + 2- self.order :i +2]), np.array(self.X[i+2 - self.order:i+2]).transpose())) ** (
+                np.dot(np.array(self.X[i  - self.order :i ]), np.array(self.X[i- self.order:i]).transpose())) ** (
                              1 / 2))
             # if v>1:
             #    v = 1
@@ -156,8 +156,9 @@ class Model:
 
             self.L.append(np.dot(c, S))
 
-    def J(self):
-        for l in range(1, len(self.L)):
-            k = (self.L[l] - self.L[l - 1])
+    def J(self,offset):
+        self.offset = offset
+        for l in range(len(self.L) - offset):
+            k = (self.L[l+offset] - self.L[l ])
 
             self.list_J.append(np.dot(k.transpose(), k))
