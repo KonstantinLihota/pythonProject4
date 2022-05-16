@@ -12,18 +12,21 @@ if __name__ == '__main__':
         #plt.plot(data)
 
         list_date = np.concatenate((list_date,data))
+    plt.plot(list_date)
+    for i in range(len(list_date)-1):
+        list_date[i] = list_date[i+1]- list_date[i]
     print(len(list_date))
-    data = list(list_date)
-    #gen = DataGenerating([-0.1,0.1], [0.3, -0.2], sigma=1, N=20000, v=10000)
+    data = list(list_date[:-1])
+    #gen = DataGenerating([-0.2,0.1], [0.3, -0.2], sigma=1, N=20000, v=10000)
     #data = gen.generating_data()
-    model = Model(h=30, data = data, order = 1)
+    model = Model(h=10, data = data, order = 2)
 
     #print(model.Estimate_var(4,40,80))
 
     #v,c = model.V_slove(2, 90)
     #print(v, c)
 
-    model.r_t(30, 30)
+    model.r_t(20, 20)
 
     model.Lambd()
 

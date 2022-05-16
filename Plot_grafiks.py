@@ -18,7 +18,7 @@ class Plot():
     def estimate_parametrs(self):
         for i in range(self.model.order):
             plt.figure(figsize=(20, 5))
-            plt.plot(self.model.t[:-1],np.array(self.model.L).reshape(-1,2)[:,i])
+            plt.plot(self.model.t[:-1],np.array(self.model.L).reshape(-1,self.model.order)[:,i])
             plt.title("Оценки параметров")
 
     def data(self):
@@ -38,6 +38,7 @@ class Plot():
         self.time_step()
         self.sum_step()
         self.estimate_var()
+        self.estimate_parametrs()
         self.change_detection()
 
 

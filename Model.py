@@ -25,6 +25,7 @@ class Model:
     def _MNK(self, N0, N1):
 
         A = np.array([self.X[N0 - i:N1 - i] for i in range(self.order, 2 * self.order)])
+        A = A[::-1]
         b = np.array(self.X[N0:N1]).reshape(-1, 1)
 
         return np.dot(
@@ -37,8 +38,10 @@ class Model:
         mnk = self._MNK(N0, N1)
 
         for i in range(N1, N2 - 1):
+            A = self.X[i - self.order: i]
+            A = A[::-1]
             sum += (np.array(self.X[i + 1]) -
-                    np.dot(mnk, np.array(self.X[i - self.order: i]).reshape(-1, 1))) ** 2
+                    np.dot(mnk, np.array(A).reshape(-1, 1))) ** 2
 
         var = (sum / (N2 - N1 - 2)) ** (1 / 2)
         return var[0]
@@ -46,7 +49,7 @@ class Model:
     def _C(self, i, v, C_sum):
 
         A = np.array(self.X[i - self.order:i]).reshape(-1, self.order)
-
+        A = A[::-1]
         C_sum = C_sum + v * np.dot(A.transpose(), A)
 
         return min(np.linalg.eig(C_sum)[0]), C_sum
@@ -54,7 +57,7 @@ class Model:
     def _Sum_right(self, i, v, sum):
 
         A = np.array(self.X[i - self.order:i]).reshape(-1, self.order)
-
+        A = A[::-1]
         sum = sum + (v ** 2) * np.dot(A, A.transpose())[0]
         #self._ = (A, v)
         return sum
@@ -77,6 +80,7 @@ class Model:
             list_v.append(v)
 
             A = np.array(self.X[i - self.order:i]).reshape(-1, self.order)
+            A = A[::-1]
             v_min += list_v[-1] * np.dot(A.transpose(), A)
             C_sum += (list_v[-1] ** 2) * np.dot(A, A.transpose())[0][0]
 
@@ -110,7 +114,7 @@ class Model:
 
         v_min = mat
         C_sum = Sum_
-        print(v_interval[-1])
+        #print(v_interval[-1])
         return v_interval, v_min, C_sum
 
     def r_t(self, MNK_size, D_size, var=None):
@@ -150,9 +154,11 @@ class Model:
             S = np.zeros((self.order, 1))
 
             for j in range(len(self.list_v[i])):
+
                 T = self.t[i] + j + self.indent
                 A = np.array(self.X[T - self.order - 1:T - 1]).reshape(-1, self.order)
-                S += A.transpose() * self.list_v[i][j] * self.X[T]
+                A = A[::-1]
+                S += A.transpose() * self.list_v[i][j] * self.X[T ]
 
             self.L.append(np.dot(c, S))
 
