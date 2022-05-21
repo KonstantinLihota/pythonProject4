@@ -21,9 +21,12 @@ class Plot():
             plt.plot(self.model.t[:-1],np.array(self.model.L).reshape(-1,self.model.order)[:,i])
             plt.title("Оценки параметров")
 
-    def data(self):
+    def data(self, diff = True):
             plt.figure(figsize=(20, 5))
-            plt.plot(self.model.X)
+            if diff:
+                plt.plot(list(range(9000,11000)),self.model.X[9000:11000])
+            else:
+                plt.plot(self.model.X)
             plt.title("Данные")
     def change_detection(self):
             plt.figure(figsize=(20, 5))

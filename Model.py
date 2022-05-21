@@ -40,10 +40,10 @@ class Model:
         for i in range(N1, N2 - 1):
             A = self.X[i - self.order: i]
             A = A[::-1]
-            sum += (np.array(self.X[i + 1]) -
+            sum += (np.array(self.X[i +1]) -
                     np.dot(mnk, np.array(A).reshape(-1, 1))) ** 2
 
-        var = (sum / (N2 - N1 - 2)) ** (1 / 2)
+        var = (sum / (N2 - N1 - 1)) ** (1 / 2)
         return var[0]
 
     def _C(self, i, v, C_sum):
@@ -70,11 +70,6 @@ class Model:
             return [0] * self.order, 0, 0
 
         for i in range(x0 - self.order, x0):
-            v = 1 / (self.sigma * (
-                np.dot(np.array(self.X[i  - self.order :i ]), np.array(self.X[i- self.order:i]).transpose())) ** (
-                             1 / 2))
-            # if v>1:
-            #    v = 1
             v = 0
 
             list_v.append(v)
@@ -83,7 +78,8 @@ class Model:
             A = A[::-1]
             v_min += list_v[-1] * np.dot(A.transpose(), A)
             C_sum += (list_v[-1] ** 2) * np.dot(A, A.transpose())[0][0]
-
+            #print(A)
+        #print(list_v, v_min, C_sum)
         return list_v, v_min, C_sum
 
     def V_slove(self, k=0, v_interval=0, v_min=None, C_sum=0):
@@ -138,12 +134,14 @@ class Model:
             while min(np.linalg.eig(S)[0]) < self.h and k_last < self.N - self.order:
                 v, S, C_sum = self.V_slove(k_last, v, S, C_sum)
                 k_last = k_last + 1
-
+                #print(self.list_v, '\n', S, C_sum)
                 self.r.append(min(np.linalg.eig(S)[0]))
 
             self.list_v.append(v)
             self.С_border.append(S)
             #print(v[-1])
+
+
             t_last_index = k_last
             self.t.append(t_last_index - 1)
 
@@ -155,16 +153,16 @@ class Model:
 
             for j in range(len(self.list_v[i])):
 
-                T = self.t[i] + j + self.indent
-                A = np.array(self.X[T - self.order - 1:T - 1]).reshape(-1, self.order)
+                T = self.t[i] + j + self.indent -1
+                A = np.array(self.X[T - self.order :T ]).reshape(-1, self.order)
                 A = A[::-1]
-                S += A.transpose() * self.list_v[i][j] * self.X[T ]
+                S += A.transpose() * self.list_v[i][j] * self.X[T+1]
 
             self.L.append(np.dot(c, S))
 
     def J(self,offset):
         self.offset = offset
         for l in range(len(self.L) - offset):
-            k = (self.L[l+offset] - self.L[l ])
+            k = (self.L[l+offset] - self.L[l])
 
             self.list_J.append(np.dot(k.transpose(), k))
